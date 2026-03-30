@@ -1,5 +1,6 @@
 package se.su.inlupp;
 
+
 public interface Edge<T> {
 
   int getWeight();
