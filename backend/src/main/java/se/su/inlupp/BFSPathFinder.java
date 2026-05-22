@@ -44,16 +44,19 @@ public class BFSPathFinder<T> implements PathFinder<T> {
       return null;
     }
 
+    //List<List<Edge<T>>> edgeLists = new ArrayList<>();
     List<Edge<T>> edges = new ArrayList<>();
     T current = to;
 
     while (!current.equals(from)) {
       T prev = previous.get(current);
       Edge<T> edge = graph.getEdgeBetween(prev, current);
-      edges.add(0, edge);
+
+      edges.add(0,edge); //Ändra till linkedList om jag vil ha addFirst.
       current = prev;
     }
 
+    //edgeLists.add(edges);
     return new SimplePath<>(from, edges);
 
   }

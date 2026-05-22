@@ -5,7 +5,8 @@ public class SimplePath<T> implements Path<T>{
     private T start;
     private List<Edge<T>> edges;
 
-    public SimplePath(List<Edge<T>> edges) {
+    public SimplePath(T start, List<Edge<T>> edges) {
+        this.start = start;
         this.edges = edges;
     }
 
