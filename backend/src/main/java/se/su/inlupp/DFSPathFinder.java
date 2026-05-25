@@ -19,15 +19,14 @@ public class DFSPathFinder<T> implements PathFinder<T> {
     if(result == null) {
       return null;
     }
-
-    return new SimplePath<>(result);
+    return new SimplePath<>(from, result);
   }
 
 
   private List<Edge<T>> dfs(Graph<T> graph, T current, T goal, Set<T> visited) {
     visited.add(current);
     if(current.equals(goal)) {
-      return new ArrayList<>();
+      return new ArrayList<>(); //Fattar inte
     }
     // Gå igenom alla edges från current
     for (Edge<T> edge : graph.getEdgesFrom(current)) {
@@ -46,7 +45,6 @@ public class DFSPathFinder<T> implements PathFinder<T> {
 
           // Lägg current först i vägen
           path.add(0, edge);
-
           return path;
 
           }
