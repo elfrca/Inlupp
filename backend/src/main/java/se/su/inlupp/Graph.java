@@ -2,7 +2,7 @@ package se.su.inlupp;
 
 import java.util.Collection;
 import java.util.Set;
-
+//Elias
 public interface Graph<T> extends Iterable<T> {
 
   void add(T node);
