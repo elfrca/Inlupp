@@ -207,7 +207,6 @@ public class ListGraph<T> implements Graph<T> {
         return "till " + destination + " med " + name + " tar " + weight;
     }
   }
+
 }
-
-
 
