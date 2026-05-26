@@ -204,14 +204,9 @@ public class ListGraph<T> implements Graph<T> {
     }
     @Override
     public String toString() {
-      return destination + " (" + name + ":" + weight + ")";
+        return "till " + destination + " med " + name + " tar " + weight;
     }
-
   }
 
-
-
 }
-
-
 
