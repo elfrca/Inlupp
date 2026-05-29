@@ -10,6 +10,7 @@ import javafx.scene.control.TextInputDialog;
 import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
+import javafx.scene.shape.Line;
 
 public class MindMapApp extends Application {
     private Pane workspace;
@@ -22,9 +23,10 @@ public class MindMapApp extends Application {
 
         Button addIdeaButton = new Button("Lägg till idé");
         Button removeIdeaButton = new Button("Ta bort idé");
+        Button connectButton = new Button("Koppla två idéer");
 
 
-        ToolBar toolBar = new ToolBar(addIdeaButton, removeIdeaButton);
+        ToolBar toolBar = new ToolBar(addIdeaButton, removeIdeaButton, connectButton);
 
         root.setTop(toolBar);
         root.setCenter(workspace);
@@ -50,12 +52,43 @@ public class MindMapApp extends Application {
         });
 
         removeIdeaButton.setOnAction(event -> {
+            IdeaNode nodeToRemove = null;
+
             for (IdeaNode node : nodes) {
                 if (node.isSelected()) {
-                    node = null;
+                    nodeToRemove = node;
                     break;
                 }
             }
+
+            if (nodeToRemove != null) {
+                workspace.getChildren().remove(nodeToRemove);
+                nodes.remove(nodeToRemove);
+            }
+
+        });
+
+        connectButton.setOnAction(event -> {
+            IdeaNode first = null;
+            IdeaNode second = null;
+
+            for (IdeaNode node : nodes) {
+                if(node.isSelected()) {
+                    if ( first == null) {
+                        first = node;
+                    }
+                    else {
+                        second = node;
+                        break;
+                    }
+                }
+            }
+            if (first != null && second != null) {
+                Line line = new Line(first.getCenterX(), first.getCenterY(), second.getCenterX(), second.getCenterY());
+
+                workspace.getChildren().add(0, line);
+            }
+
         });
 
         Scene scene = new Scene(root, 1000, 700);
