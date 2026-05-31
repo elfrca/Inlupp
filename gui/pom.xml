@@ -10,8 +10,8 @@
   <packaging>jar</packaging>
 
   <properties>
-    <javafx.version>22</javafx.version>
-    <mainClassName>se.su.inlupp.Gui</mainClassName>
+    <javafx.version>25</javafx.version>
+    <mainClassName>se.su.inlupp.MindMapApp</mainClassName>
   </properties>
 
   <dependencies>
