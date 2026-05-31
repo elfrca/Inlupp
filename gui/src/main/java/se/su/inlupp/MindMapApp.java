@@ -1,159 +1,341 @@
 package se.su.inlupp;
-
 import javafx.application.Application;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.ToolBar;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
+import javafx.scene.control.TextInputDialog;
+import java.util.Optional;
+import java.util.ArrayList;
+import java.util.List;
 import javafx.scene.shape.Line;
-
-import java.util.*;
+import javafx.scene.control.Alert;
+import javafx.stage.FileChooser;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import java.io.File;
 
 public class MindMapApp extends Application {
-
-    private Pane workspace;
-
-    private MindMapModel model = new MindMapModel();
-
+    //private Pane workspace;
+    private Pane backgroundLayer;
+    private Pane connectionLayer;
+    private Pane nodeLayer;
+    private ImageView backgroundImage;
     private List<IdeaNode> nodes = new ArrayList<>();
     private List<Connection> connections = new ArrayList<>();
+    private MindMapModel model = new MindMapModel();
 
-    @Override
     public void start(Stage stage) {
-
         BorderPane root = new BorderPane();
-        workspace = new Pane();
 
-        root.setCenter(workspace);
+        //workspace = new Pane();
 
+        backgroundLayer = new Pane();
+        connectionLayer = new Pane();
+        nodeLayer = new Pane();
 
-        MenuBar menuBar = new MenuBar();
-        Menu algoMenu = new Menu("Algorithm");
+        //backgrundbilsd initering
+        backgroundImage = new ImageView();
+        backgroundImage.fitWidthProperty().bind(backgroundLayer.widthProperty());
+        backgroundImage.fitHeightProperty().bind(backgroundLayer.heightProperty());
+        backgroundImage.setPreserveRatio(false);
+        backgroundLayer.getChildren().add(backgroundImage);
 
-        MenuItem dfs = new MenuItem("DFS");
-        MenuItem bfs = new MenuItem("BFS");
+        //end
+        Button addIdeaButton = new Button("Lägg till idé");
+        Button removeIdeaButton = new Button("Ta bort idé");
+        Button connectButton = new Button("Koppla två idéer");
+        Button removeConnection = new Button("Ta bort en koppling");
+        Button loadImageButton = new Button("Ladda bild");
 
-        algoMenu.getItems().addAll(dfs, bfs);
-        menuBar.getMenus().add(algoMenu);
+        ToolBar toolBar = new ToolBar(addIdeaButton, removeIdeaButton, connectButton, removeConnection, loadImageButton);
 
-        root.setTop(menuBar);
+        root.setTop(toolBar);
+        StackPane rootCenter = new StackPane(
+                backgroundLayer,
+                connectionLayer,
+                nodeLayer
+        );
+        root.setCenter(rootCenter);
 
-        dfs.setOnAction(e -> model.useDFS());
-        bfs.setOnAction(e -> model.useBFS());
+        addIdeaButton.setOnAction(event -> {
+            TextInputDialog dialog = new TextInputDialog();
 
+            dialog.setTitle("Ny idé");
+            dialog.setHeaderText("Skapa en ny idé");
+            dialog.setContentText("Namn");
 
-        Button add = new Button("Add");
-        Button remove = new Button("Remove");
-        Button connect = new Button("Connect");
-        Button findPath = new Button("Find Path");
+            Optional<String> result = dialog.showAndWait();
 
-        ToolBar bar = new ToolBar(add, remove, connect, findPath);
-        root.setBottom(bar);
+            if( result.isPresent()) {
+                String ideaName = result.get().trim();
 
-        add.setOnAction(e -> {
-            TextInputDialog d = new TextInputDialog();
-            d.setHeaderText("Add idea");
+                if (ideaName.isEmpty()) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
 
-            Optional<String> res = d.showAndWait();
-            if (res.isEmpty()) return;
+                    alert.setTitle("Fel");
+                    alert.setHeaderText("Ogiltigt namn");
+                    alert.setContentText("Idén måste ha ett namn");
 
-            String name = res.get().trim();
-            if (name.isEmpty()) return;
+                    alert.showAndWait();
+                    return;
+                }
+                IdeaNode node = new IdeaNode(ideaName, 100, 100);
 
-            model.addIdea(name);
+                node.setMoveListener(this::updateConnections);
 
-            IdeaNode node = new IdeaNode(name, 100, 100);
-            nodes.add(node);
-            workspace.getChildren().add(node);
+                nodes.add(node);
+
+                nodeLayer.getChildren().add(node);
+                model.addIdea(ideaName);
+            }
+            deselectAllNodes();
         });
 
+        removeIdeaButton.setOnAction(event -> {
+            List<IdeaNode> selectedNodes = getSelectedNodes();
+            if (selectedNodes.size() != 1) {
 
-        remove.setOnAction(e -> {
-            List<IdeaNode> selected = getSelected();
+                Alert alert = new Alert(Alert.AlertType.ERROR);
 
-            if (selected.size() != 1) return;
+                alert.setTitle("Fel");
+                alert.setHeaderText("Fel antal noder valda");
+                alert.setContentText("Du måste markera exakt en idé att ta bort");
 
-            IdeaNode n = selected.get(0);
+                alert.showAndWait();
+                deselectAllNodes();
+                return;
+            }
+            IdeaNode nodeToRemove = selectedNodes.get(0);
 
-            model.removeIdea(n.getIdeaName());
+            List<Connection> connectionsToRemove = new ArrayList<>();
 
-            nodes.remove(n);
-            workspace.getChildren().remove(n);
+            for(Connection connection : connections) {
+                if(connection.getFirst() == nodeToRemove || connection.getSecond() == nodeToRemove) {
+                    connectionsToRemove.add(connection);
+                }
+            }
+            for(Connection connection : connectionsToRemove) {
+                connectionLayer.getChildren().remove(connection.getLine());
+                connections.remove(connection);
+            }
+            model.removeIdea(nodeToRemove.getIdeaName());
+            nodeLayer.getChildren().remove(nodeToRemove);
+            nodes.remove(nodeToRemove);
+
+            deselectAllNodes();
         });
 
-        connect.setOnAction(e -> {
-            List<IdeaNode> selected = getSelected();
+        connectButton.setOnAction(event -> {
+            List<IdeaNode> selectedNodes = getSelectedNodes();
 
-            if (selected.size() != 2) return;
+            if (selectedNodes.size() != 2) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
 
-            IdeaNode a = selected.get(0);
-            IdeaNode b = selected.get(1);
+                alert.setTitle("Fel");
+                alert.setHeaderText("Fel antal noder valda");
+                alert.setContentText("Du måste markera exakt två idéer");
 
-            TextInputDialog rel = new TextInputDialog();
-            rel.setHeaderText("Relation");
-            Optional<String> relation = rel.showAndWait();
-            if (relation.isEmpty()) return;
+                alert.showAndWait();
+                deselectAllNodes();
+                return;
+            }
+            IdeaNode first = selectedNodes.get(0);
+            IdeaNode second = selectedNodes.get(1);
 
-            TextInputDialog w = new TextInputDialog();
-            w.setHeaderText("Weight");
+            if(getConnection(first, second) != null) {  //använder hjälpmetod
+                Alert alert = new Alert(Alert.AlertType.ERROR);
 
-            int weight;
-            try {
-                weight = Integer.parseInt(w.showAndWait().orElse("1"));
-            } catch (Exception ex) {
+                alert.setTitle("Fel");
+                alert.setHeaderText("Koppling finns redan");
+                alert.setContentText("Dessa idéer är redan kopplade");
+
+                alert.showAndWait();
+                deselectAllNodes();
+                return;
+            }
+            TextInputDialog relationDialog = new TextInputDialog();
+
+            relationDialog.setTitle("Ny koppling");
+            relationDialog.setHeaderText("Ange relation");
+            relationDialog.setContentText("Relationsnamn:");
+
+            Optional<String> relationResult = relationDialog.showAndWait();
+
+            if (relationResult.isEmpty()) {
+                deselectAllNodes();
                 return;
             }
 
+            String relationName = relationResult.get().trim();
+
+            if (relationName.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+
+                alert.setTitle("Fel");
+                alert.setHeaderText("Ogiltigt namn");
+                alert.setContentText("Relationsnamnet får inte vara tomt");
+
+                alert.showAndWait();
+                deselectAllNodes();
+                return;
+            }
+
+            TextInputDialog weightDialog = new TextInputDialog();
+
+            weightDialog.setTitle("Ny koppling");
+            weightDialog.setHeaderText("Ange vikt");
+            weightDialog.setContentText("Vikt:");
+
+            Optional<String> weightResult = weightDialog.showAndWait();
+
+            if (weightResult.isEmpty()) {
+                deselectAllNodes();
+                return;
+            }
+
+            int weight;
+
+            try {
+                weight = Integer.parseInt(weightResult.get());
+
+                if (weight < 0) {
+                    throw new NumberFormatException();
+                }
+            } catch (NumberFormatException e) {
+
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+
+                alert.setTitle("Fel");
+                alert.setHeaderText("Ogiltig vikt");
+                alert.setContentText("Vikten måste vara ett positivt heltal");
+
+                alert.showAndWait();
+                deselectAllNodes();
+                return;
+            }
+
+            Line line = new Line(
+                    first.getCenterX(),
+                    first.getCenterY(),
+                    second.getCenterX(),
+                    second.getCenterY()
+            );
+
+            Connection connection = new Connection(first, second, line);
+
+            connections.add(connection);
+
             model.connectIdeas(
-                    a.getIdeaName(),
-                    b.getIdeaName(),
-                    relation.get(),
+                    first.getIdeaName(),
+                    second.getIdeaName(),
+                    relationName,
                     weight
             );
 
-            Line line = new Line(
-                    a.getCenterX(), a.getCenterY(),
-                    b.getCenterX(), b.getCenterY()
-            );
-
-            connections.add(new Connection(a, b, line));
-            workspace.getChildren().add(0, line);
+            connectionLayer.getChildren().add(line);
+            deselectAllNodes();
         });
 
-        findPath.setOnAction(e -> {
-            List<IdeaNode> selected = getSelected();
+        removeConnection.setOnAction( event -> {
+            List<IdeaNode> selectedNodes = getSelectedNodes();
+            if (selectedNodes.size() != 2) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
 
-            if (selected.size() != 2) return;
+                alert.setTitle("Fel");
+                alert.setHeaderText("Fel antal noder valda");
+                alert.setContentText("Du måste markera exakt två idéer");
 
-            IdeaNode a = selected.get(0);
-            IdeaNode b = selected.get(1);
+                alert.showAndWait();
+                deselectAllNodes();
+                return;
+            }
+            IdeaNode first = selectedNodes.get(0);
+            IdeaNode second = selectedNodes.get(1);
 
-            Path<String> path = model.findPath(
-                    a.getIdeaName(),
-                    b.getIdeaName()
+            Connection connection = getConnection(first, second);
+            if(connection == null) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+
+                alert.setTitle("Fel");
+                alert.setHeaderText("Koppling finns inte");
+                alert.setContentText("Dessa idéer är inte kopplade");
+
+                alert.showAndWait();
+                deselectAllNodes();
+                return;
+            }
+            connectionLayer.getChildren().remove(connection.getLine());
+            model.disconnectIdeas(
+                    first.getIdeaName(),
+                    second.getIdeaName()
             );
-
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setHeaderText("Path Result");
-            alert.setContentText(path == null ? "No path found" : path.toString());
-            alert.show();
+            connections.remove(connection);
+            deselectAllNodes();
         });
 
-        stage.setScene(new Scene(root, 1000, 700));
+        loadImageButton.setOnAction(e -> {
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg")
+            );
+
+            File file = fileChooser.showOpenDialog(stage);
+            if (file != null) {
+                Image img = new Image(file.toURI().toString());
+                backgroundImage.setImage(img);
+                backgroundImage.toBack();
+            }
+        });
+
+
+        Scene scene = new Scene(root, 1000, 700);
+
         stage.setTitle("Mind Map");
+        stage.setScene(scene);
         stage.show();
     }
 
-
-    private List<IdeaNode> getSelected() {
-        List<IdeaNode> sel = new ArrayList<>();
-        for (IdeaNode n : nodes) {
-            if (n.isSelected()) sel.add(n);
+    private void updateConnections() {
+        for(Connection connection : connections) {
+            connection.update();
         }
-        return sel;
+    }
+
+    private Connection getConnection(IdeaNode first, IdeaNode second) {
+        for (Connection connection : connections) {
+
+            if ((connection.getFirst() == first && connection.getSecond() == second)
+                    ||
+                    (connection.getFirst() == second && connection.getSecond() == first)) {
+                return connection;
+            }
+        }
+        return null;
+    }
+
+    private List<IdeaNode> getSelectedNodes() {
+        List<IdeaNode> selectedNodes = new ArrayList<>();
+
+        for (IdeaNode node : nodes) {
+            if (node.isSelected()) {
+                selectedNodes.add(node);
+            }
+        }
+        return selectedNodes;
+    }
+
+    public void deselectAllNodes() {
+        for(IdeaNode node : nodes) {
+            node.deselect();
+        }
     }
 
     public static void main(String[] args) {
         launch(args);
     }
+
 }
