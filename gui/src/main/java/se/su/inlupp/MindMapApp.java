@@ -1,17 +1,15 @@
 package se.su.inlupp;
 import javafx.application.Application;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.ToolBar;
+import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
-import javafx.scene.control.TextInputDialog;
+
 import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
 import javafx.scene.shape.Line;
-import javafx.scene.control.Alert;
 
 public class MindMapApp extends Application {
     private Pane workspace;
@@ -24,14 +22,29 @@ public class MindMapApp extends Application {
 
         workspace = new Pane();
 
+        MenuBar menuBar = new MenuBar();
+        Menu algorithMenu = new Menu("Algoritm");
+
+        MenuItem dfsItem = new MenuItem("DFS");
+        MenuItem bfsItem = new MenuItem("BFS");
+
+        dfsItem.setOnAction(e -> model.useDFS());
+        bfsItem.setOnAction(e -> model.useBFS());
+
+        algorithMenu.getItems().addAll(dfsItem, bfsItem);
+        menuBar.getMenus().add(algorithMenu);
+
+        root.setTop(menuBar);
+
         Button addIdeaButton = new Button("Lägg till idé");
         Button removeIdeaButton = new Button("Ta bort idé");
         Button connectButton = new Button("Koppla två idéer");
         Button removeConnection = new Button("Ta bort en koppling");
+        Button findPathButton = new Button("Hitta väg");
 
-        ToolBar toolBar = new ToolBar(addIdeaButton, removeIdeaButton, connectButton, removeConnection);
+        ToolBar toolBar = new ToolBar(addIdeaButton, removeIdeaButton, connectButton, removeConnection, findPathButton);
 
-        root.setTop(toolBar);
+        root.setBottom(toolBar);
         root.setCenter(workspace);
 
         addIdeaButton.setOnAction(event -> {
@@ -45,8 +58,21 @@ public class MindMapApp extends Application {
 
             if( result.isPresent()) {
                 String ideaName = result.get().trim();
+                for (IdeaNode node : nodes) { //Kollar om samma namn
+                    if (node.getIdeaName().equals(ideaName)) {
 
-                if (ideaName.isEmpty()) {
+                        Alert alert = new Alert(Alert.AlertType.ERROR);
+
+                        alert.setTitle("Fel");
+                        alert.setHeaderText("Idén finns redan");
+                        alert.setContentText("Det finns redan en idé med det namnet");
+
+                        alert.showAndWait();
+                        return;
+                    }
+                }
+
+                if (ideaName.isEmpty()) { //Kollar om namn finns
                     Alert alert = new Alert(Alert.AlertType.ERROR);
 
                     alert.setTitle("Fel");
@@ -56,6 +82,7 @@ public class MindMapApp extends Application {
                     alert.showAndWait();
                     return;
                 }
+
                 IdeaNode node = new IdeaNode(ideaName, 100, 100);
 
                 node.setMoveListener(this::updateConnections);
@@ -199,8 +226,9 @@ public class MindMapApp extends Application {
             );
 
             Connection connection = new Connection(first, second, line);
-
+            System.out.println("Connections: " + connections.size());
             connections.add(connection);
+            System.out.println("Found: " + connection);
 
             model.connectIdeas(
                     first.getIdeaName(),
@@ -249,6 +277,46 @@ public class MindMapApp extends Application {
             connections.remove(connection);
             deselectAllNodes();
         });
+
+        findPathButton.setOnAction(event -> {
+            List<IdeaNode> selectedNodes = getSelectedNodes();
+
+            if (selectedNodes.size() != 2) {
+
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+
+                alert.setTitle("Fel");
+                alert.setHeaderText("Fel antal noder valda");
+                alert.setContentText("Du måste markera exakt två idéer");
+
+                alert.showAndWait();
+                return;
+            }
+
+            IdeaNode first = selectedNodes.get(0);
+            IdeaNode second = selectedNodes.get(1);
+
+            Path<String> path = model.findPath(
+                    first.getIdeaName(),
+                    second.getIdeaName()
+            );
+
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+
+            alert.setTitle("Hittad väg");
+
+            if (path == null) {
+                alert.setContentText("Ingen väg hittades");
+            } else {
+                alert.setContentText(path.toString());
+            }
+
+            alert.showAndWait();
+        });
+
+
+
+
         Scene scene = new Scene(root, 1000, 700);
 
         stage.setTitle("Mind Map");

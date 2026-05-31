@@ -52,4 +52,23 @@ public class SimplePath<T> implements Path<T>{
     public Iterator<Edge<T>> iterator() {
         return edges.iterator();
     }
+
+    @Override
+    public String toString() {
+        String result = start.toString();
+
+        for (Edge<T> edge : edges) {
+            result += " --(" +
+                    edge.getName() +
+                    ", " +
+                    edge.getWeight() +
+                    ")--> " +
+                    edge.getDestination();
+        }
+
+        result += "\n\nTotal vikt: " + getTotalWeight();
+
+        return result;
+    }
+
 }
