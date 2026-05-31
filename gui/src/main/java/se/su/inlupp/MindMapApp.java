@@ -17,6 +17,7 @@ public class MindMapApp extends Application {
     private Pane workspace;
     private List<IdeaNode> nodes = new ArrayList<>();
     private List<Connection> connections = new ArrayList<>();
+    private MindMapModel model = new MindMapModel();
 
     public void start(Stage stage) {
         BorderPane root = new BorderPane();
@@ -27,7 +28,6 @@ public class MindMapApp extends Application {
         Button removeIdeaButton = new Button("Ta bort idé");
         Button connectButton = new Button("Koppla två idéer");
         Button removeConnection = new Button("Ta bort en koppling");
-
 
         ToolBar toolBar = new ToolBar(addIdeaButton, removeIdeaButton, connectButton, removeConnection);
 
@@ -44,8 +44,18 @@ public class MindMapApp extends Application {
             Optional<String> result = dialog.showAndWait();
 
             if( result.isPresent()) {
-                String ideaName = result.get();
+                String ideaName = result.get().trim();
 
+                if (ideaName.isEmpty()) {
+                    Alert alert = new Alert(Alert.AlertType.ERROR);
+
+                    alert.setTitle("Fel");
+                    alert.setHeaderText("Ogiltigt namn");
+                    alert.setContentText("Idén måste ha ett namn");
+
+                    alert.showAndWait();
+                    return;
+                }
                 IdeaNode node = new IdeaNode(ideaName, 100, 100);
 
                 node.setMoveListener(this::updateConnections);
@@ -53,6 +63,7 @@ public class MindMapApp extends Application {
                 nodes.add(node);
 
                 workspace.getChildren().add(node);
+                model.addIdea(ideaName);
             }
             deselectAllNodes();
         });
@@ -73,7 +84,6 @@ public class MindMapApp extends Application {
             }
             IdeaNode nodeToRemove = selectedNodes.get(0);
 
-
             List<Connection> connectionsToRemove = new ArrayList<>();
 
             for(Connection connection : connections) {
@@ -85,13 +95,14 @@ public class MindMapApp extends Application {
                 workspace.getChildren().remove(connection.getLine());
                 connections.remove(connection);
             }
+            model.removeIdea(nodeToRemove.getIdeaName());
             workspace.getChildren().remove(nodeToRemove);
             nodes.remove(nodeToRemove);
+
             deselectAllNodes();
         });
 
         connectButton.setOnAction(event -> {
-
             List<IdeaNode> selectedNodes = getSelectedNodes();
 
             if (selectedNodes.size() != 2) {
@@ -108,7 +119,6 @@ public class MindMapApp extends Application {
             IdeaNode first = selectedNodes.get(0);
             IdeaNode second = selectedNodes.get(1);
 
-
             if(getConnection(first, second) != null) {  //använder hjälpmetod
                 Alert alert = new Alert(Alert.AlertType.ERROR);
 
@@ -120,16 +130,87 @@ public class MindMapApp extends Application {
                 deselectAllNodes();
                 return;
             }
+            TextInputDialog relationDialog = new TextInputDialog();
 
-            Line line = new Line(first.getCenterX(), first.getCenterY(), second.getCenterX(), second.getCenterY());
+            relationDialog.setTitle("Ny koppling");
+            relationDialog.setHeaderText("Ange relation");
+            relationDialog.setContentText("Relationsnamn:");
+
+            Optional<String> relationResult = relationDialog.showAndWait();
+
+            if (relationResult.isEmpty()) {
+                deselectAllNodes();
+                return;
+            }
+
+            String relationName = relationResult.get().trim();
+
+            if (relationName.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+
+                alert.setTitle("Fel");
+                alert.setHeaderText("Ogiltigt namn");
+                alert.setContentText("Relationsnamnet får inte vara tomt");
+
+                alert.showAndWait();
+                deselectAllNodes();
+                return;
+            }
+
+            TextInputDialog weightDialog = new TextInputDialog();
+
+            weightDialog.setTitle("Ny koppling");
+            weightDialog.setHeaderText("Ange vikt");
+            weightDialog.setContentText("Vikt:");
+
+            Optional<String> weightResult = weightDialog.showAndWait();
+
+            if (weightResult.isEmpty()) {
+                deselectAllNodes();
+                return;
+            }
+
+            int weight;
+
+            try {
+                weight = Integer.parseInt(weightResult.get());
+
+                if (weight < 0) {
+                    throw new NumberFormatException();
+                }
+            } catch (NumberFormatException e) {
+
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+
+                alert.setTitle("Fel");
+                alert.setHeaderText("Ogiltig vikt");
+                alert.setContentText("Vikten måste vara ett positivt heltal");
+
+                alert.showAndWait();
+                deselectAllNodes();
+                return;
+            }
+
+            Line line = new Line(
+                    first.getCenterX(),
+                    first.getCenterY(),
+                    second.getCenterX(),
+                    second.getCenterY()
+            );
 
             Connection connection = new Connection(first, second, line);
+
             connections.add(connection);
+
+            model.connectIdeas(
+                    first.getIdeaName(),
+                    second.getIdeaName(),
+                    relationName,
+                    weight
+            );
 
             workspace.getChildren().add(0, line);
             deselectAllNodes();
-
-
         });
 
         removeConnection.setOnAction( event -> {
@@ -161,18 +242,18 @@ public class MindMapApp extends Application {
                 return;
             }
             workspace.getChildren().remove(connection.getLine());
+            model.disconnectIdeas(
+                    first.getIdeaName(),
+                    second.getIdeaName()
+            );
             connections.remove(connection);
             deselectAllNodes();
         });
-
         Scene scene = new Scene(root, 1000, 700);
 
         stage.setTitle("Mind Map");
         stage.setScene(scene);
         stage.show();
-
-
-
     }
 
     private void updateConnections() {
@@ -182,8 +263,8 @@ public class MindMapApp extends Application {
     }
 
     private Connection getConnection(IdeaNode first, IdeaNode second) {
-
         for (Connection connection : connections) {
+
             if ((connection.getFirst() == first && connection.getSecond() == second)
                     ||
                     (connection.getFirst() == second && connection.getSecond() == first)) {
@@ -194,7 +275,6 @@ public class MindMapApp extends Application {
     }
 
     private List<IdeaNode> getSelectedNodes() {
-
         List<IdeaNode> selectedNodes = new ArrayList<>();
 
         for (IdeaNode node : nodes) {
@@ -202,7 +282,6 @@ public class MindMapApp extends Application {
                 selectedNodes.add(node);
             }
         }
-
         return selectedNodes;
     }
 
