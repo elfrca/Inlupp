@@ -18,8 +18,7 @@ public class MindMapModel {
         graph.remove(idea);
     }
 
-    public void connectIdeas(String from, String to,
-                             String relation, int weight) {
+    public void connectIdeas(String from, String to, String relation, int weight) {
         graph.connect(from, to, relation, weight);
     }
 
