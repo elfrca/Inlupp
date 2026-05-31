@@ -16,6 +16,8 @@ public class IdeaNode extends StackPane {
 
     private boolean selected;
 
+    private Runnable moveListener; //Elias lade till
+
     public IdeaNode(String ideaName, double x, double y) {
         this.ideaName = ideaName;
         this.selected = false;
@@ -45,7 +47,13 @@ public class IdeaNode extends StackPane {
         setOnMouseDragged(event -> {
             setLayoutX(event.getSceneX() - dragOffsetX);
             setLayoutY(event.getSceneY() - dragOffsetY);
+
+            if(moveListener != null) {//Elias lade till
+                moveListener.run();
+            }
         });
+
+
     }
 
     private void makeSelectable() {
@@ -86,4 +94,10 @@ public class IdeaNode extends StackPane {
     public double getCenterY() {
         return getLayoutY() + circle.getRadius();
     }
+
+    public void setMoveListener(Runnable moveListener) { //Elias lade till
+        this.moveListener = moveListener;
+    }
+
+
 }

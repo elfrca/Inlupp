@@ -20,4 +20,17 @@ public class Connection {
         line.setEndX(second.getCenterX());
         line.setEndY(second.getCenterY());
     }
+
+    public Line getLine() {
+        return line;
+    }
+
+    public IdeaNode getFirst() {
+        return first;
+    }
+
+    public IdeaNode getSecond() {
+        return second;
+    }
+
 }
