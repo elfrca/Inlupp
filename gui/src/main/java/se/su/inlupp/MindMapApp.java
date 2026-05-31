@@ -5,14 +5,21 @@ import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
-
 import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
 import javafx.scene.shape.Line;
+import javafx.scene.layout.StackPane;
+import javafx.stage.FileChooser;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import java.io.File;
 
 public class MindMapApp extends Application {
-    private Pane workspace;
+    private Pane backgroundLayer;
+    private Pane connectionLayer;
+    private Pane nodeLayer;
+    private ImageView backgroundImage;
     private List<IdeaNode> nodes = new ArrayList<>();
     private List<Connection> connections = new ArrayList<>();
     private MindMapModel model = new MindMapModel();
@@ -20,7 +27,17 @@ public class MindMapApp extends Application {
     public void start(Stage stage) {
         BorderPane root = new BorderPane();
 
-        workspace = new Pane();
+        backgroundLayer = new Pane();
+        connectionLayer = new Pane();
+        nodeLayer = new Pane();
+
+        backgroundImage = new ImageView();
+
+        backgroundImage.fitWidthProperty().bind(backgroundLayer.widthProperty());
+        backgroundImage.fitHeightProperty().bind(backgroundLayer.heightProperty());
+        backgroundImage.setPreserveRatio(false);
+
+        backgroundLayer.getChildren().add(backgroundImage);
 
         MenuBar menuBar = new MenuBar();
         Menu algorithMenu = new Menu("Algoritm");
@@ -41,11 +58,18 @@ public class MindMapApp extends Application {
         Button connectButton = new Button("Koppla två idéer");
         Button removeConnection = new Button("Ta bort en koppling");
         Button findPathButton = new Button("Hitta väg");
+        Button loadImageButton = new Button("Ladda bild");
 
-        ToolBar toolBar = new ToolBar(addIdeaButton, removeIdeaButton, connectButton, removeConnection, findPathButton);
+        ToolBar toolBar = new ToolBar(addIdeaButton, removeIdeaButton, connectButton, removeConnection, findPathButton, loadImageButton);
 
         root.setBottom(toolBar);
-        root.setCenter(workspace);
+        StackPane rootCenter = new StackPane(
+                backgroundLayer,
+                connectionLayer,
+                nodeLayer
+        );
+
+        root.setCenter(rootCenter);
 
         addIdeaButton.setOnAction(event -> {
             TextInputDialog dialog = new TextInputDialog();
@@ -89,7 +113,7 @@ public class MindMapApp extends Application {
 
                 nodes.add(node);
 
-                workspace.getChildren().add(node);
+                nodeLayer.getChildren().add(node);
                 model.addIdea(ideaName);
             }
             deselectAllNodes();
@@ -119,11 +143,11 @@ public class MindMapApp extends Application {
                 }
             }
             for(Connection connection : connectionsToRemove) {
-                workspace.getChildren().remove(connection.getLine());
+                connectionLayer.getChildren().remove(connection.getLine());
                 connections.remove(connection);
             }
             model.removeIdea(nodeToRemove.getIdeaName());
-            workspace.getChildren().remove(nodeToRemove);
+            nodeLayer.getChildren().remove(nodeToRemove);
             nodes.remove(nodeToRemove);
 
             deselectAllNodes();
@@ -226,9 +250,9 @@ public class MindMapApp extends Application {
             );
 
             Connection connection = new Connection(first, second, line);
-            System.out.println("Connections: " + connections.size());
+
             connections.add(connection);
-            System.out.println("Found: " + connection);
+
 
             model.connectIdeas(
                     first.getIdeaName(),
@@ -237,7 +261,7 @@ public class MindMapApp extends Application {
                     weight
             );
 
-            workspace.getChildren().add(0, line);
+            connectionLayer.getChildren().add(line);
             deselectAllNodes();
         });
 
@@ -269,7 +293,7 @@ public class MindMapApp extends Application {
                 deselectAllNodes();
                 return;
             }
-            workspace.getChildren().remove(connection.getLine());
+            connectionLayer.getChildren().remove(connection.getLine());
             model.disconnectIdeas(
                     first.getIdeaName(),
                     second.getIdeaName()
@@ -314,6 +338,29 @@ public class MindMapApp extends Application {
             alert.showAndWait();
         });
 
+        loadImageButton.setOnAction(e -> {
+
+            FileChooser fileChooser = new FileChooser();
+
+            fileChooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter(
+                            "Images",
+                            "*.png",
+                            "*.jpg",
+                            "*.jpeg"
+                    )
+            );
+
+            File file = fileChooser.showOpenDialog(stage);
+
+            if (file != null) {
+                Image img = new Image(file.toURI().toString());
+
+                backgroundImage.setImage(img);
+                backgroundImage.toBack();
+            }
+        });
+
 
 
 
@@ -340,6 +387,7 @@ public class MindMapApp extends Application {
             }
         }
         return null;
+
     }
 
     private List<IdeaNode> getSelectedNodes() {
