@@ -46,4 +46,8 @@ public class MindMapModel {
     public Graph<String> getGraph() {
         return graph;
     }
+
+    public Collection<Edge<String>> getConnections(String idea) {
+        return graph.getEdgesFrom(idea);
+    }
 }

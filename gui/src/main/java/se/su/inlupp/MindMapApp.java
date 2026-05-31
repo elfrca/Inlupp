@@ -5,6 +5,9 @@ import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
+
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +17,7 @@ import javafx.stage.FileChooser;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import java.io.File;
+import java.util.Scanner;
 
 public class MindMapApp extends Application {
     private Pane backgroundLayer;
@@ -23,6 +27,9 @@ public class MindMapApp extends Application {
     private List<IdeaNode> nodes = new ArrayList<>();
     private List<Connection> connections = new ArrayList<>();
     private MindMapModel model = new MindMapModel();
+
+    private boolean unsavedChanges = false;
+    private String imagePath;
 
     public void start(Stage stage) {
         BorderPane root = new BorderPane();
@@ -58,16 +65,14 @@ public class MindMapApp extends Application {
         Button connectButton = new Button("Koppla två idéer");
         Button removeConnection = new Button("Ta bort en koppling");
         Button findPathButton = new Button("Hitta väg");
-        Button loadImageButton = new Button("Ladda bild");
+        Button loadImageButton = new Button("Byt bild");
+        Button saveButton = new Button("Spara");
+        Button loadButton = new Button("Ladda upp");
 
-        ToolBar toolBar = new ToolBar(addIdeaButton, removeIdeaButton, connectButton, removeConnection, findPathButton, loadImageButton);
+        ToolBar toolBar = new ToolBar(addIdeaButton, removeIdeaButton, connectButton, removeConnection, findPathButton, loadImageButton, saveButton, loadButton);
 
         root.setBottom(toolBar);
-        StackPane rootCenter = new StackPane(
-                backgroundLayer,
-                connectionLayer,
-                nodeLayer
-        );
+        StackPane rootCenter = new StackPane(backgroundLayer, connectionLayer, nodeLayer);
 
         root.setCenter(rootCenter);
 
@@ -115,6 +120,7 @@ public class MindMapApp extends Application {
 
                 nodeLayer.getChildren().add(node);
                 model.addIdea(ideaName);
+                unsavedChanges = true;
             }
             deselectAllNodes();
         });
@@ -147,6 +153,7 @@ public class MindMapApp extends Application {
                 connections.remove(connection);
             }
             model.removeIdea(nodeToRemove.getIdeaName());
+            unsavedChanges = true;
             nodeLayer.getChildren().remove(nodeToRemove);
             nodes.remove(nodeToRemove);
 
@@ -242,24 +249,15 @@ public class MindMapApp extends Application {
                 return;
             }
 
-            Line line = new Line(
-                    first.getCenterX(),
-                    first.getCenterY(),
-                    second.getCenterX(),
-                    second.getCenterY()
-            );
+            Line line = new Line(first.getCenterX(), first.getCenterY(), second.getCenterX(), second.getCenterY());
 
             Connection connection = new Connection(first, second, line);
 
             connections.add(connection);
 
 
-            model.connectIdeas(
-                    first.getIdeaName(),
-                    second.getIdeaName(),
-                    relationName,
-                    weight
-            );
+            model.connectIdeas(first.getIdeaName(), second.getIdeaName(), relationName, weight);
+            unsavedChanges = true;
 
             connectionLayer.getChildren().add(line);
             deselectAllNodes();
@@ -294,10 +292,8 @@ public class MindMapApp extends Application {
                 return;
             }
             connectionLayer.getChildren().remove(connection.getLine());
-            model.disconnectIdeas(
-                    first.getIdeaName(),
-                    second.getIdeaName()
-            );
+            model.disconnectIdeas(first.getIdeaName(), second.getIdeaName());
+            unsavedChanges = true;
             connections.remove(connection);
             deselectAllNodes();
         });
@@ -320,10 +316,7 @@ public class MindMapApp extends Application {
             IdeaNode first = selectedNodes.get(0);
             IdeaNode second = selectedNodes.get(1);
 
-            Path<String> path = model.findPath(
-                    first.getIdeaName(),
-                    second.getIdeaName()
-            );
+            Path<String> path = model.findPath(first.getIdeaName(), second.getIdeaName());
 
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
 
@@ -342,14 +335,7 @@ public class MindMapApp extends Application {
 
             FileChooser fileChooser = new FileChooser();
 
-            fileChooser.getExtensionFilters().add(
-                    new FileChooser.ExtensionFilter(
-                            "Images",
-                            "*.png",
-                            "*.jpg",
-                            "*.jpeg"
-                    )
-            );
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg"));
 
             File file = fileChooser.showOpenDialog(stage);
 
@@ -357,7 +343,69 @@ public class MindMapApp extends Application {
                 Image img = new Image(file.toURI().toString());
 
                 backgroundImage.setImage(img);
+                imagePath = file.getAbsolutePath();
+                unsavedChanges = true;
                 backgroundImage.toBack();
+            }
+        });
+
+        saveButton.setOnAction(e -> {
+
+            FileChooser chooser = new FileChooser();
+
+            File file = chooser.showSaveDialog(stage);
+
+            if (file == null) {
+                return;
+            }
+
+            try {
+                save(file);
+            } catch (IOException ex) {
+
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+
+                alert.setHeaderText("Kunde inte spara");
+
+                alert.showAndWait();
+            }
+        });
+
+        loadButton.setOnAction(e -> {
+
+            if (unsavedChanges) {
+                Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+
+                alert.setTitle("Osparade ändringar");
+                alert.setHeaderText("Det finns osparade ändringar");
+                alert.setContentText("Vill du fortsätta utan att spara?");
+
+                Optional<ButtonType> result =
+                        alert.showAndWait();
+
+                if (result.isEmpty()
+                        || result.get() != ButtonType.OK) {
+                    return;
+                }
+            }
+
+            FileChooser chooser = new FileChooser();
+
+            File file = chooser.showOpenDialog(stage);
+
+            if (file == null) {
+                return;
+            }
+
+            try {
+                load(file);
+            } catch (IOException ex) {
+
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+
+                alert.setHeaderText("Kunde inte ladda filen");
+
+                alert.showAndWait();
             }
         });
 
@@ -368,6 +416,24 @@ public class MindMapApp extends Application {
 
         stage.setTitle("Mind Map");
         stage.setScene(scene);
+        stage.setOnCloseRequest(event -> {
+
+            if (!unsavedChanges) {
+                return;
+            }
+
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+
+            alert.setTitle("Osparade ändringar");
+            alert.setHeaderText("Det finns osparade ändringar");
+            alert.setContentText("Vill du verkligen avsluta?");
+
+            Optional<ButtonType> result = alert.showAndWait();
+
+            if (result.isEmpty() || result.get() != ButtonType.OK) {
+                event.consume();
+            }
+        });
         stage.show();
     }
 
@@ -380,8 +446,7 @@ public class MindMapApp extends Application {
     private Connection getConnection(IdeaNode first, IdeaNode second) {
         for (Connection connection : connections) {
 
-            if ((connection.getFirst() == first && connection.getSecond() == second)
-                    ||
+            if ((connection.getFirst() == first && connection.getSecond() == second) ||
                     (connection.getFirst() == second && connection.getSecond() == first)) {
                 return connection;
             }
@@ -407,6 +472,135 @@ public class MindMapApp extends Application {
         }
     }
 
+    private void save(File file) throws IOException {
+
+        PrintWriter writer = new PrintWriter(file);
+
+        for (IdeaNode node : nodes) {
+            writer.println("NODE;" + node.getIdeaName() + ";" + node.getLayoutX() + ";" + node.getLayoutY());
+        }
+
+        for (String idea : model.getIdeas()) {
+
+            for (Edge<String> edge : model.getConnections(idea)) {
+
+                if (idea.compareTo(edge.getDestination()) < 0) {
+
+                    writer.println("EDGE;" + idea + ";" + edge.getDestination() + ";" + edge.getName() + ";" + edge.getWeight());
+                }
+            }
+        }
+        if (imagePath != null) {
+
+            writer.println("IMAGE;" + imagePath);
+        }
+        writer.close();
+        unsavedChanges = false;
+    }
+    private void load(File file) throws IOException {
+
+        nodes.clear();
+        connections.clear();
+
+        nodeLayer.getChildren().clear();
+        connectionLayer.getChildren().clear();
+
+        model = new MindMapModel();
+        backgroundImage.setImage(null);
+        imagePath = null;
+
+        List<String> edgeLines = new ArrayList<>();
+
+        Scanner scanner = new Scanner(file);
+        String loadedImagePath = null;
+
+        while (scanner.hasNextLine()) {
+
+            String line = scanner.nextLine();
+
+            String[] parts = line.split(";");
+
+            if (parts[0].equals("NODE")) {
+
+                String name = parts[1];
+
+                double x = Double.parseDouble(parts[2]);
+                double y = Double.parseDouble(parts[3]);
+
+                IdeaNode node = new IdeaNode(name, x, y);
+
+                node.setMoveListener(this::updateConnections);
+
+                nodes.add(node);
+
+                nodeLayer.getChildren().add(node);
+
+                model.addIdea(name);
+
+            } else if (parts[0].equals("EDGE")) {
+                edgeLines.add(line);
+
+            } else if (parts[0].equals("IMAGE")) {
+
+                loadedImagePath = parts[1];
+            }
+        }
+
+        scanner.close();
+
+        if (loadedImagePath != null) {
+
+            File imageFile = new File(loadedImagePath);
+
+            if (imageFile.exists()) {
+
+                Image image = new Image(imageFile.toURI().toString());
+
+                backgroundImage.setImage(image);
+
+                imagePath = loadedImagePath;
+            }
+        }
+
+        for (String edgeLine : edgeLines) {
+
+            String[] parts = edgeLine.split(";");
+
+            String from = parts[1];
+            String to = parts[2];
+            String relation = parts[3];
+            int weight = Integer.parseInt(parts[4]);
+
+            model.connectIdeas(from, to, relation, weight);
+
+            IdeaNode first = null;
+            IdeaNode second = null;
+
+            for (IdeaNode node : nodes) {
+
+                if (node.getIdeaName().equals(from)) {
+                    first = node;
+                }
+
+                if (node.getIdeaName().equals(to)) {
+                    second = node;
+                }
+            }
+
+            if (first != null && second != null) {
+
+                Line line = new Line(first.getCenterX(), first.getCenterY(), second.getCenterX(), second.getCenterY());
+
+                Connection connection = new Connection(first, second, line);
+
+                connections.add(connection);
+
+                connectionLayer.getChildren().add(line);
+            }
+        }
+
+        unsavedChanges = false;
+    }
     public static void main(String[] args) {
         launch(args);
     }

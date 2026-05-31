@@ -58,14 +58,8 @@ public class SimplePath<T> implements Path<T>{
         String result = start.toString();
 
         for (Edge<T> edge : edges) {
-            result += " --(" +
-                    edge.getName() +
-                    ", " +
-                    edge.getWeight() +
-                    ")--> " +
-                    edge.getDestination();
+            result += " --(" + edge.getName() + ", " + edge.getWeight() + ")--> " + edge.getDestination();
         }
-
         result += "\n\nTotal vikt: " + getTotalWeight();
 
         return result;
